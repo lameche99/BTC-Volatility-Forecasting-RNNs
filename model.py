@@ -97,7 +97,7 @@ def create_model(trial, mode: int = 1):
 
     return model
 
-def objective(trial, train_x: np.array, train_y: np.array, valid_x: np.array, valid_y: np.array, mode: int = 1):
+def train_model(trial, train_x: np.array, train_y: np.array, valid_x: np.array, valid_y: np.array, mode: int = 1):
     # Clear clutter from previous TensorFlow graphs.
     clear_session()
 
