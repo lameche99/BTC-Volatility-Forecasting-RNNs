@@ -5,8 +5,29 @@ from keras.layers import LSTM, GRU, Dense, Reshape
 from keras.models import Sequential
 from keras.optimizers import AdamW
 from keras.backend import clear_session
-from optuna.integration import TFKerasPruningCallback
+from optuna_integration.tfkeras import TFKerasPruningCallback
+import sqlite3
+import optuna
+from optuna.trial import TrialState
+from optuna.samplers import TPESampler
 
+engine = sqlite3.connect('./btc-data.db')
+btc = pd.read_sql('SELECT * FROM BTCUSD', engine)
+logRet = btc.logRet.values[-13920:]
+n = len(logRet)
+train_size = 9216
+val_size = 6912
+dt = 96
+train_x = logRet[:val_size].reshape(int(0.75*dt), dt, 1)
+val_x = logRet[val_size:train_size].reshape(int(dt/4), dt, 1)
+full_train_x = logRet[:train_size].reshape(dt,dt,1)
+test_x = logRet[train_size:(n-dt)].reshape(int(dt/2),dt,1)
+train_y = logRet[dt:(val_size+dt)].reshape(int(0.75*dt), dt, 1)
+val_y = logRet[(val_size+dt):(train_size+dt)].reshape(int(dt/4), dt, 1)
+full_train_y = logRet[dt:(train_size+dt)].reshape(dt,dt,1)
+test_y = logRet[(train_size+dt):n].reshape(int(dt/2),dt,1)
+min_ = np.min(full_train_x)
+scale_ = np.max(full_train_x) - min_
 
 def squared_epsilon_insensitive_loss(epsilon: float = 0.025):
     """
@@ -30,7 +51,7 @@ def squared_epsilon_insensitive_loss(epsilon: float = 0.025):
 
     return _loss
 
-def invTransform(sig: np.array, df_scale: pd.DataFrame):
+def invTransform(sig: np.array):
     """
     Invert scaled signals
     :param sig: np.array - (3,) signals with resepct 
@@ -38,7 +59,7 @@ def invTransform(sig: np.array, df_scale: pd.DataFrame):
     :param df_scale: pd.DataFrame - scales for data
     :return: np.array - transformed output
     """
-    scalermin_, scalerscale_ = df_scale["mins"][0], df_scale["scales"][0]
+    scalermin_, scalerscale_ = min_, scale_
     X = tf.reshape(sig[0,:,0],[sig.shape[1],1])
     X -= scalermin_
     X /= scalerscale_
@@ -97,7 +118,11 @@ def create_model(trial, mode: int = 1):
 
     return model
 
-def train_model(trial, train_x: np.array, train_y: np.array, valid_x: np.array, valid_y: np.array, mode: int = 1):
+def train_model(trial, train_x: np.array = train_x,
+                train_y: np.array = train_y,
+                valid_x: np.array = val_x,
+                valid_y: np.array = val_y,
+                mode: int = 1):
     # Clear clutter from previous TensorFlow graphs.
     clear_session()
 
@@ -125,3 +150,32 @@ def train_model(trial, train_x: np.array, train_y: np.array, valid_x: np.array, 
 
     return history.history[monitor][-1]
 
+def create_study():
+    study = optuna.create_study(
+        direction="minimize", sampler=TPESampler(multivariate=True), storage=f"sqlite:///test_rnn.db",
+        load_if_exists=True, pruner=optuna.pruners.NopPruner()
+    )
+    study.optimize(train_model, n_trials=250, catch=(Exception,))
+    return study
+
+def show_result(study):
+
+    pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
+    complete_trials = study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])
+
+    print("Study statistics: ")
+    print("  Number of finished trials: ", len(study.trials))
+    print("  Number of pruned trials: ", len(pruned_trials))
+    print("  Number of complete trials: ", len(complete_trials))
+
+    print("Best trial:")
+    trial = study.best_trial
+
+    print("  Value: ", trial.value)
+
+    print("  Params: ")
+    for key, value in trial.params.items():
+        print("    {}: {}".format(key, value))
+    
+    best_test_result = train_model(trial, train_x=full_train_x, train_y=full_train_y, valid_x=test_x, valid_y=test_y)
+    print(f"Best result in test set: {best_test_result}")

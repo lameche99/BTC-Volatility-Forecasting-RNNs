@@ -51,7 +51,7 @@ def main():
     gc.collect()
     final['log'] = np.log(final['close'])
     final['logRet'] = final.log.diff()
-    final.sort_values(by='date', ascending=False, inplace=True)
+    # final.sort_values(by='date', ascending=False, inplace=True)
     final.dropna(axis=0, inplace=True)
     final.to_sql(TICKER.split(':')[1], engine, if_exists='replace', index=False)
     return
