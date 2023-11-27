@@ -245,7 +245,6 @@ def invPred(sig):
 
     return to_ret
 
-
 def calculate_RV(signal):
     """Calcualte RV from log returns
     Parameters
