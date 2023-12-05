@@ -15,9 +15,9 @@ def build_dataset(path,
     
     tf.random.set_seed(23)
     
-    data = load_data(col=['RV', 'logRet', 'sentiment_score'], path=path)
-    # hours, day, minute = make_time_features(data.date)
-    # data = pd.concat([data.drop(['date'], axis=1), hours, day, minute], axis=1)
+    data = load_data(col=['RV', 'date', 'logRet', 'sentiment_score'], path=path)
+    hours, day, minute = make_time_features(data.date)
+    data = pd.concat([data.drop(['date'], axis=1), hours, day, minute], axis=1)
         
     mm = MinMaxScaler()
     data = mm.fit_transform(data)
