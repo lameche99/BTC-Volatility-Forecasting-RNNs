@@ -1,5 +1,7 @@
+# Data Handler functions to create tensorflow datasets
+# 2023-12-05
+
 import pandas as pd
-import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 import tensorflow as tf
 
@@ -10,14 +12,22 @@ def build_dataset(path,
                   batch_size=256, 
                   shuffle_buffer=500, 
                   expand_dims=False):
-    """If multi variate then first column is always the column from which the target is contstructed.
+    """
+    This function creates a windowed dataset for tensorflow models
+    :param path: str - dataset file
+    :param train_fraq: float - train size. Default = 0.65
+    :param n_steps: int - size of input interval. Default = 72
+    :param n_horizon: int - size of future prediction interval. Default = 24
+    :param batch_size: int - batch size. Default = 256
+    :param shuffle_buffer: int - buffer when splitting the data
+    :return: tuple(tf.Dataset, tf.Dataset, tf.Dataset) - train, validation, test datasets 
     """
     
     tf.random.set_seed(23)
     
-    data = load_data(col=['RV', 'date', 'logRet', 'sentiment_score'], path=path)
-    hours, day, minute = make_time_features(data.date)
-    data = pd.concat([data.drop(['date'], axis=1), hours, day, minute], axis=1)
+    data = load_data(col=['RV', 'logRet', 'sentiment_score'], path=path)
+    # hours, day, minute = make_time_features(data.date)
+    # data = pd.concat([data.drop(['date'], axis=1), hours, day, minute], axis=1)
         
     mm = MinMaxScaler()
     data = mm.fit_transform(data)
@@ -37,6 +47,12 @@ def build_dataset(path,
     return train_ds, val_ds, test_ds
 
 def load_data(col=None, path="./src/rv_sentiment.csv"):
+    """
+    This function reads the input dataframe
+    :param col: list - ordered list of columns
+    :param path: str - file path
+    :return: pd.DataFrame - input data
+    """
     df = pd.read_csv(path)
     if col is not None:
         df = df[col]
@@ -51,7 +67,9 @@ def min_max_scale(dataframe):
     return mm.fit_transform(dataframe)
 
 def make_time_features(series):
-    
+    """
+    Converts timestamp into three features
+    """
     #convert series to datetimes
     times = series.apply(lambda x: x.split('+')[0])
     datetimes = pd.DatetimeIndex(times)
@@ -69,7 +87,7 @@ def make_time_features(series):
 def split_data(series, train_fraq, test_len=200):
     """Splits input series into train, val and test.
     
-        Default to 1 year of test data.
+        Default to 200 observations of test data.
     """
     #slice the last year of data for testing 1 year has 8760 hours
     test_slice = len(series)-test_len

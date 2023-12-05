@@ -1,3 +1,6 @@
+# Function to download BTC data with polygon.io API
+# 2023-12-05
+
 import pandas as pd
 import numpy as np
 import gc, time, sqlite3
