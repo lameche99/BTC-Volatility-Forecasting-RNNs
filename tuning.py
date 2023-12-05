@@ -3,13 +3,13 @@ import optuna
 from optuna.trial import TrialState
 from optuna.samplers import TPESampler
 
-def hyper_tune(trial, model_fun, train, val):
+def hyper_tune(trial, model_fun, train, val, n_steps, n_horizon, n_features):
     monitor = 'val_mae'
     # Hyperparameters to be tuned by Optuna.
     learning_rate = trial.suggest_float("learning_rate", 3e-7, 3e-2, log=True)
     weight_decay = trial.suggest_float("weight_decay", 1e-9, 1e-2, log=True)
-    
-    model = model_fun(learning_rate, weight_decay)
+
+    model = model_fun(learning_rate, weight_decay, n_steps, n_horizon, n_features)
     callbacks = [TFKerasPruningCallback(trial, monitor)]
     history = model.fit(
         train,
@@ -19,12 +19,18 @@ def hyper_tune(trial, model_fun, train, val):
     )
     return history.history[monitor][-1]
 
-def create_study(model_fun, train, val):
+def create_study(model_fun, train, val, n_steps, n_horizon, n_features):
     study = optuna.create_study(
         direction="minimize", sampler=TPESampler(multivariate=True), storage=f"sqlite:///hypertune.db",
         load_if_exists=True, pruner=optuna.pruners.NopPruner()
     )
-    study.optimize(lambda x: hyper_tune(trial=x, model_fun=model_fun, train=train, val=val), n_trials=25, catch=(Exception,))
+    study.optimize(lambda x: hyper_tune(trial=x,
+                                        model_fun=model_fun,
+                                        train=train, val=val,
+                                        n_steps=n_steps,
+                                        n_horizon=n_horizon,
+                                        n_features=n_features),
+                   n_trials=25, catch=(Exception,))
     return study
 
 def get_optimized_parameters(study):

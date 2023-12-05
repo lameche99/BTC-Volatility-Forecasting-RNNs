@@ -79,11 +79,11 @@ def lstm_cnn_model(lr, wd, n_steps=72, n_horizon=24, n_features=5):
 def cfg_model_run(model, history, test_ds):
     return {"model": model, "history" : history, "test_ds": test_ds}
 
-def run_model(fname, model_name, model_func, model_configs, model_parms, n_steps=72, n_horizon=24):
+def run_model(fname, model_name, model_func, model_configs, model_parms, n_steps=72, n_horizon=24, n_features=5):
     
     train_ds, val_ds, test_ds = build_dataset(path=fname, n_steps=n_steps, n_horizon=n_horizon)
 
-    model = model_func(lr=model_parms['learning_rate'], wd=model_parms['weight_decay'], n_steps=n_steps, n_horizon=n_horizon)
+    model = model_func(lr=model_parms['learning_rate'], wd=model_parms['weight_decay'], n_steps=n_steps, n_horizon=n_horizon, n_features=n_features)
     model_hist = model.fit(train_ds, validation_data=val_ds, epochs=150)
 
     model_configs[model_name] = cfg_model_run(model, model_hist, test_ds)
